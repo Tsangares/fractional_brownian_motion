@@ -1,0 +1,13 @@
+[package]
+name = "fractional_browning_motion"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.71"
+ndarray = "0.15.4"
+rand = "0.8.4"
+plotters = "0.3.4"
+image = "0.24.6"
+base64 = "0.21.2"
+rocket = { version="0.5.0-rc.3", features = ["json"] }
