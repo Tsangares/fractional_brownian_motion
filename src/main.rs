@@ -120,6 +120,9 @@ fn return_image() -> RawHtml<String> {
 // Define the handler for the /fbm endpoint
 #[get("/fbm/<n>/<h>")]
 fn fbm(n: usize, h: f64) -> RawHtml<String> {
+    if h < 0.5 {
+        return RawHtml("Hurst parameter must be greater than 0.5.".to_string());
+    }
     let fbm = generate_fbm(n,h);
     let img: image::RgbImage = plot_fbm(fbm).expect("Unable to build image from data.");
     let img: image::DynamicImage = image::DynamicImage::ImageRgb8(img);
