@@ -1,0 +1,11 @@
+[global]
+address = "127.0.0.1"
+port = 8787
+
+[development]
+address = "127.0.0.1"
+port = 8787
+
+[production]
+address = "127.0.0.1"
+port = 8787

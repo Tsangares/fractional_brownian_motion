@@ -14,9 +14,11 @@ use rocket::serde::json::Json;
 
 //Plotting
 use plotters::prelude::*;
+//use plotchart::drawing::bitmap_pixel::BGRXPixel;
 use image::{ImageFormat, ImageEncoder};
 use image::codecs::png::PngEncoder;
 use image::{RgbaImage, Rgba};
+use plotters::backend::BGRXPixel;
 
 //Encoding
 use base64::{Engine as _, engine::general_purpose};
@@ -60,47 +62,55 @@ fn get_limits_of_fbm(fbm: &Vec<f64>) -> (f64, f64) {
     (min, max)
 }
 
+//Function to plot the output of fbm as a time series and return as a png and writes to dist
+fn plot_fbm_to_png(fbm: Vec<f64>, dist: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let (min, max) = get_limits_of_fbm(&fbm);
+    let root = BitMapBackend::new(dist, (640, 480)).into_drawing_area();
+    root.fill(&WHITE)?;
+    let mut chart = ChartBuilder::on(&root)
+        .caption("Fractional Brownian Motion", ("sans-serif", 50))
+        .margin(20)
+        .x_label_area_size(30)
+        .y_label_area_size(30)
+        .build_cartesian_2d(0..fbm.len(), min..max)?;
+    chart.configure_mesh().draw()?;
+    chart.draw_series(LineSeries::new(
+        (0..fbm.len()).map(|i| (i, fbm[i])),
+        &RED,
+    ))?;
+    Ok(())
+}
+
+
 //Pake in a vector of f64 and plot it
-fn plot_fbm(fbm: Vec<f64>) -> Result<RgbaImage, Box<dyn std::error::Error>> {
+fn plot_fbm(fbm: Vec<f64>) -> Result<image::RgbImage, Box<dyn std::error::Error>> {
     let (min, max) = get_limits_of_fbm(&fbm);
     let (width, height) = (1024, 768);
-    let mut imgbuf = RgbaImage::new(width, height);
 
+    let mut imgbuf = image::RgbImage::new(width, height);
     {
-        let root = BitMapBackend::with_buffer(&mut imgbuf, (width,height)).into_drawing_area();
-        let root = BitMapBackend::new("plotters-doc-data/0.png", (640, 480)).into_drawing_area();
+        let root = BitMapBackend::with_buffer(&mut imgbuf, (width, height))
+            .into_drawing_area();
         root.fill(&WHITE)?;
         let mut chart = ChartBuilder::on(&root)
-            .caption("y=x^2", ("sans-serif", 50).into_font())
-            .margin(5)
+            .caption("Fractional Brownian Motion", ("sans-serif", 50))
+            .margin(20)
             .x_label_area_size(30)
             .y_label_area_size(30)
-            .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)?;
-
+            .build_cartesian_2d(0..fbm.len(), min..max)?;
         chart.configure_mesh().draw()?;
-
-        chart
-            .draw_series(LineSeries::new(
-                (-50..=50).map(|x| x as f32 / 50.0).map(|x| (x, x * x)),
-                &RED,
-            ))?
-            .label("y = x^2")
-            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
-
-        chart
-            .configure_series_labels()
-            .background_style(&WHITE.mix(0.8))
-            .border_style(&BLACK)
-            .draw()?;
-
+        chart.draw_series(LineSeries::new(
+            (0..fbm.len()).map(|i| (i, fbm[i])),
+            &RED,
+        ))?;
     }
-
 
     // Save the image to a file as PNG before returning it
     imgbuf.save_with_format("fbm.png", image::ImageFormat::Png)?;
 
     Ok(imgbuf)
 }
+
 
 #[allow(dead_code)]
 fn return_image() -> RawHtml<String> {
@@ -111,8 +121,8 @@ fn return_image() -> RawHtml<String> {
 #[get("/fbm/<n>/<h>")]
 fn fbm(n: usize, h: f64) -> RawHtml<String> {
     let fbm = generate_fbm(n,h);
-    let img: RgbaImage = plot_fbm(fbm).expect("Unable to build image from data.");
-    let img: image::DynamicImage = image::DynamicImage::ImageRgba8(img);
+    let img: image::RgbImage = plot_fbm(fbm).expect("Unable to build image from data.");
+    let img: image::DynamicImage = image::DynamicImage::ImageRgb8(img);
 
     // Convert the encoded PNG data to a base64 string
     let mut buf = Vec::new();
@@ -128,5 +138,7 @@ fn fbm(n: usize, h: f64) -> RawHtml<String> {
 // Launch the server
 #[launch]
 fn rocket() -> _ {
+    let fbm = generate_fbm(1000, 0.5);
+    plot_fbm_to_png(fbm, "fbm.png").expect("Unable to plot FBM to PNG.");
     rocket::build().mount("/", routes![fbm])
 }
